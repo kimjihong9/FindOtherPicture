@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>숨은 이미지 찾기 게임</title>
+
+    <style>
+      body {
+        background: LightCoral;
+      }
+      div#title {
+        margin: 0px auto; /*가운데 정렬*/
+        font-size: 30px; /*폰트 사이즈 , 굵기, 색, 위치 설정*/
+        font-weight: 750;
+        color: white;
+        text-align: center;
+      }
+      span#bgm {
+        margin: 0px auto; /*가운데 정렬*/
+        font-size : 30px;
+      }
+      tr > td.pos {
+        padding: 0px;
+      }
+      table, img, h3{
+        display : inline-block;
+      }
+      #score {
+        background:linen;
+      }
+    </style>
+
+    <script>
+    var row=3, col=8;
+
+    var start, rest, fail, time, inform, restartButton, soundButton; //게임 정보 제공 태그들
+    var rest_count, fail_count; // 각각 남은 수, 실패 수
+    var time_game, time_img; //전체 게임 시간, 숨은 이미지 보여주는 시간
+    var t_Game, t_Img// 게임 시간과 정답 이미지가 보여지는 시간 setInterval 객체
+    var position; //cell들의 collection
+    var resetImg="C:\\web_prog\\media\\Project_media\\Image.jpg"; //기본 사진
+    var answerImg="C:\\web_prog\\media\\Project_media\\answerImage.jpg"; //정답 사진
+    var bgm = new Audio("C:\\web_prog\\media\\Project_media\\projectMusic.mp4"); //배경음악
+
+    var isLoading = false; //게임 준비 확인
+    var isGaming = false; //게임 중인지 확인
+    var soundOn = true; //배경음악 재생중인지 확인
+
+      function load(){
+        start=document.getElementById("start"); //누르면 게임 시작
+        rest=document.getElementById("rest"); //남은 수
+        fail=document.getElementById("fail"); //실패 수
+        time=document.getElementById("time"); //남은 시간
+        inform=document.getElementById("inform"); //게임 정보 제공
+        restartButton=document.getElementById("restart"); //다시 시작 버튼
+        soundButton=document.getElementById("bgm"); //배경음악 제어 버튼
+
+
+        var gameScreen=document.getElementById("gameScreen"); //gameScreen=>게임을 진행할 화면
+        var table=document.createElement("table"); //게임 화면에 table태그 생성후, gameScreen의 자식 태그로 삽입
+        gameScreen.appendChild(table);
+
+        for(i=0; i<row; i++){
+          var tr=document.createElement("tr") //tr태그 생성 후, table의 자식 태그로 삽입
+          table.appendChild(tr);
+
+          for(j=0; j<col; j++){
+            var td=document.createElement("td"); //td태그 생성 후, tr의 자식 태그로 삽입
+            td.style.width="140px"; //td의 넓이와 높이->각각 161px
+            td.style.height="140px";
+            td.style.border = "0.2px solid LightCoral"; //td의 경계-> 0.2px 두께, 굵은 선 형태, LightCoral색
+            td.style.backgroundColor="white"; //td의 배경색->white
+            tr.appendChild(td);
+
+            var img=document.createElement("img"); //img태그 생성 후, td의 자식 태그로 삽입
+            img.setAttribute("src", resetImg); //img 태그의 src=resetImg
+            img.setAttribute("class", "pos"); //img 태그의 class="pos"
+            img.setAttribute("alt", "cell"); //img 태그의 alt="cell"
+            img.setAttribute("onclick", "guess(this)"); //img 태그의 onclick이벤트 발생시, guess(this)함수 실행
+            td.appendChild(img);
+          }
+        }
+
+        position=document.getElementsByClassName("pos"); //전체 cell collection
+      }// end of load
+
+      function timerGame(){ //전체 게임 시간
+        --time_game;
+        time.innerHTML="남은 시간: " + time_game;
+
+        if(time_game < 0){
+          loseGame();
+        }
+      }//end function timerGame
+
+      function timerImg(){ //숨은 이미지 보여주는 시간
+        --time_img;
+        inform.innerHTML="**다른 이미지의 위치를 기억하세요**<br />" + time_img +"초 후 이미지가 사라집니다.";
+
+        if(time_img <= 0){
+          clearInterval(t_Img);
+          inform.innerHTML="**남은 시간동안 다른 이미지의 위치를 찾으세요**";
+        }
+      }//end of showImg
+
+      function startGame(){ //게임 시작 버튼 눌렸을 때
+        if(isGaming) return; //이미 게임 중이라면 게임시작 불가능
+        bgm.play(); //배경음악 자동 실행
+
+        alert("                 -----------------게임 규칙-----------------\n                    **꽃 이미지의 위치를 기억하세요** \n                        실패수가 8이상이면 게임 실패!");
+        isGaming=true;
+        rest_count=8; fail_count=0; //초기값 남은 수:8  실패 수:0  전체 게임 시간:25  정답 이미지 보여주는 시간:10
+        time_game=25; time_img=10;
+        start.innerHTML="게임 진행중 . . .";
+        inform.innerHTML="**다른 이미지의 위치를 기억하세요**<br />" + time_img + "초 후 이미지가 사라집니다.";
+        rest.innerHTML="남은수: " + rest_count;
+        fail.innerHTML="실패수: " + fail_count;
+        time.innerHTML="남은 시간: " + time_game;
+        showHiddenImg(); // 정답 이미지 보여주는 함수
+        t_Game=setInterval("timerGame()", 1000); //1초 간격으로 timer()실행
+        t_Img=setInterval("timerImg()", 1000); //1초 간격으로 showImg()실행
+
+      }//end of startGame
+
+      function showHiddenImg(){ //랜덤으로 정답 이미지 지정하는 함수
+        var count=0;
+        while(count < rest_count){
+          var idx=Math.floor(Math.random()*23);
+          if(position[idx].alt=="Answer") continue; //정답 이미지가 중복된 위치일때 continue
+          position[idx].src=answerImg; //정답 이미지로 변경
+          position[idx].alt="Answer"; //alt값을 변경하여 다른 기본 cell들과 구분 가능
+          count++;
+        }
+        setTimeout("screenReset()", time_img*1000); //time_img인 10초 후 screenReset()실행
+      }//end of showHiddenImg
+
+      function screenReset() { //게임을 위해 정답 이미지를 다시 기본 이미지로 변경하는 함수
+        for(var i=0; i<position.length; i++){
+          if(position[i].alt=="Answer"){ //alt값을 이용하여 정답이미지의 src를 resetImg로 설정
+            position[i].src=resetImg;
+          }
+        }
+        isLoading = true; //게임 준비 완료
+      }// end of screenReset
+
+      function guess(cell){ //정답 이미지인지 확인
+        if (!isLoading) return; //정답 이미지가 reset되기 전 누른 것은 return
+
+        if(cell.alt=="Answer"){ //정답 이미지라면->right_cell() 실행
+          right_cell(cell);
+        }
+        else{ //정답 이미지가 아니라면->wrong_cell() 실행
+          wrong_cell(cell);
+        }
+      } //end of guess
+
+      function right_cell(cell) {
+        cell.src = answerImg; //정답 이미지 표시
+        cell.alt = "correct"; //alt속성 변경. ()아직 맞추지 못한 정답 이미지와 맞춘 정답이미지를 구분하기 위해)
+        rest_count--; //남은 수 -1
+        rest.innerHTML="남은수: "+rest_count;
+        if(rest_count == 0) winGame(); //남은 수가 0->winGame() 실행
+      }//end of right_cell
+
+      function wrong_cell(cell) {
+        fail_count++; //실패수 +1
+        fail.innerHTML="실패수: "+fail_count;
+        if(fail_count > 7) loseGame(); //실패 수가 8이상이면->loseGame()실행
+      }//end of wrong_cell
+
+      function winGame() {
+        clearInterval(t_Game); //반복 해제
+        start.innerHTML="게임 승리";
+        time.innerHTML="남은 시간: " + time_game;
+        inform.innerHTML="↓다시 시작 버튼↓ ";
+        restartButton.style.display = "inline-block"; //게임 종료 후에는 다시 시작 버튼 보이게 설정
+        setTimeout(function() { //alert가 화면에 먼저 출력되는 것을 막기 위해 setTimeout()실행
+          alert("Win!");
+        }, 200);
+      }//end of winGame
+
+      function loseGame() {
+        clearInterval(t_Game); //반복 해제
+        start.innerHTML="게임 종료";
+        if(fail_count > 7) time.innerHTML = "Fail Count Over"
+        else time.innerHTML="Time out";
+        inform.innerHTML="↓다시 시작 버튼↓ ";
+        let remains = document.querySelectorAll("img[alt='Answer']"); //제한 시간 안에 맞추지 못한 정답 이미지 collection
+        for (let i=0; i<remains.length; i++) {
+          remains[i].parentNode.style.border = "3px solid red"; //빨간색 경계를 표시하고 정답 이미지로 변경하면서 위치 표시
+          remains[i].src=answerImg;
+        }
+        restartButton.style.display = "inline-block"; //다시 시작 버튼 보이게 설정
+
+        setTimeout(function() { //alert가 화면에 먼저 출력되는 것을 막기 위해 setTimeout()실행
+          alert("Game over!");
+        }, 200);
+      }//end of loseGame
+
+      function restart() { //다시 시작 버튼을 눌렀을 때
+        isGaming = false;
+        soundOn = false;
+        for(i=0; i<position.length; i++){ //모든 값 초기화
+          position[i].src=resetImg;
+          position[i].alt="cell";
+          position[i].parentNode.style.border = "0.2px solid LightCoral";
+        }
+        //bgm.muted = true;
+        restartButton.style.display="none"; //다시 시작 버튼 보이지 않게 설정
+
+        startGame(); //startGame()실행
+      }//end of restart
+
+      function controlSound(){
+        if(!isGaming) return; //게임 시작 전 배경음악 재생 제어 불가능
+        if(soundOn) { //배경음악이 켜져있었다면
+          soundOn = false;
+          bgm.muted = true;
+          soundButton.innerHTML = "🔇";
+        }
+        else if(!soundOn) { // 배경음악이 꺼져있었다면
+          soundOn = true;
+          bgm.muted = false;
+          soundButton.innerHTML = "🔊";
+        }
+      }
+
+    </script>
+  </head>
+  <body onload="load()">
+    <span id="bgm" onclick="controlSound()">🔊</span>
+    <div id="title">
+      다른 이미지 찾기
+    </div>
+    <hr>
+    <div id="gameScreen">
+      <table id="score">
+        <tr><td id="start" style="background-color:yellow" onclick="startGame()">게임시작</td></tr>
+        <tr><td id="rest">남은수 </td></tr>
+        <tr><td id="fail">실패수 </td></tr>
+        <tr><td id="time">남은 시간 </td></tr>
+        <tr><td id="inform">게임이 진행될 예정입니다.</td></tr>
+        <tr><td><input type="button" id="restart" style="display: none;" value="restart" onclick="restart()"></td></tr>
+      </table>
+    </div>
+  </body>
+</html>
